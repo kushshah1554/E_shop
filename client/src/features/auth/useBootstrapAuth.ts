@@ -1,12 +1,12 @@
 import { useAuth } from "@clerk/react";
-import { useEffect } from "react";
 import { useAuthStore } from "./store";
+import { useEffect } from "react";
 import { getMe, syncUser } from "./api";
 import { setApiTokenGetter } from "@/lib/api";
 
 export function useBootstrapAuth() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { setLoading, setUser, setError, clearAuth } = useAuthStore();
+  const { setLoading, setUser, clearAuth, setError } = useAuthStore();
 
   useEffect(() => {
     setApiTokenGetter(async () => {
@@ -19,7 +19,7 @@ export function useBootstrapAuth() {
     async function run() {
       if (!isLoaded) return;
 
-      if (isSignedIn) {
+      if (!isSignedIn) {
         clearAuth();
         return;
       }
@@ -30,12 +30,12 @@ export function useBootstrapAuth() {
         const me = await getMe();
         setUser(me?.user);
       } catch (error) {
-        const message =
+        const errMessage =
           error instanceof Error ? error.message : "Failed to load user";
-        setError(message);
+        setError(errMessage);
       }
     }
 
     void run();
-  }, [isLoaded, isSignedIn, clearAuth, setLoading, setUser, setError]);
+  }, [isLoaded, isSignedIn, clearAuth, setError, setLoading, setUser]);
 }
