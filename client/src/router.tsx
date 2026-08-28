@@ -5,6 +5,13 @@ import { PublicOnlyLayout } from "./components/auth/publicOnlyLayout";
 import { SignInPage } from "./pages/auth/Sign-in";
 import { SignUpPage } from "./pages/auth/Sign-up";
 import { ProtectedLayout } from "./components/auth/ProtectedLayout";
+import { RoleGuardLayout } from "./components/auth/RoleGuardLayout";
+import { AdminLayout } from "./components/layout/AdminLayout";
+import AdminDashboard from "./pages/admin/Dashboard";
+import AdminProducts from "./pages/admin/Products";
+import AdminCoupons from "./pages/admin/Coupons";
+import AdminSettings from "./pages/admin/Settings";
+import AdminOrders from "./pages/admin/Orders";
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +38,43 @@ export const router = createBrowserRouter([
           {
             path: "profile",
             element: <h1>Profile</h1>,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    element: <ProtectedLayout />,
+    children: [
+      {
+        element: <RoleGuardLayout allow={["admin"]} />,
+
+        children: [
+          {
+            path: "/admin",
+            element: <AdminLayout />,
+            children: [
+              {
+                index: true,
+                element: <AdminDashboard />,
+              },
+              {
+                path: "products",
+                element: <AdminProducts />,
+              },
+              {
+                path: "coupons",
+                element: <AdminCoupons />,
+              },
+              {
+                path: "orders",
+                element: <AdminOrders />,
+              },
+              {
+                path: "settings",
+                element: <AdminSettings />,
+              },
+            ],
           },
         ],
       },

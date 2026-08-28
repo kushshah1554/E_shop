@@ -9,14 +9,16 @@ type RoleGuardLayoutProps = {
 export function RoleGuardLayout({ allow }: RoleGuardLayoutProps) {
   const { isBootstrapped, status, user } = useAuthStore();
 
-  if (!isBootstrapped || status === "loading") return null;
-
-  if (!user) {
-    return <Navigate to={"/sign-in"} replace />;
+  if (!isBootstrapped || status === "loading") {
+    return null;
   }
 
-  if (!user?.role && !allow.includes(user.role)) {
-    return <Navigate to={"/"} replace />;
+  if (!user) {
+    return <Navigate to="/sign-in" replace />;
+  }
+
+  if (!allow.includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
