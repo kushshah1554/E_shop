@@ -8,18 +8,6 @@ export function setApiTokenGetter(getter: () => Promise<string | null>) {
   tokenGetter = getter;
 }
 
-function getErrorMsg(err: unknown) {
-  if (axios.isAxiosError(err)) {
-    return (
-      err.response?.data.errors?.[0].message || err.message || "request failed"
-    );
-  }
-  if (err instanceof Error) {
-    return err.message;
-  }
-  return "request failed";
-}
-
 const api = axios.create({
   baseURL: env.backendUrl,
   headers: {
@@ -37,6 +25,18 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+function getErrorMsg(err: unknown) {
+  if (axios.isAxiosError(err)) {
+    return (
+      err.response?.data.errors?.[0].message || err.message || "request failed"
+    );
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return "request failed";
+}
 
 export async function apiGet<TResponse>(
   url: string,

@@ -4,10 +4,11 @@ import { connectToDatabase } from "./db";
 import cros from "cors";
 import morgan from "morgan";
 import { ok } from "./utils/envelope";
-import { notFound } from "./middleare/notFound";
-import { errorHandler } from "./middleare/errorHandler";
+import { notFound } from "./middleware/notFound";
+import { errorHandler } from "./middleware/errorHandler";
 import { clerkMiddleware } from "@clerk/express";
 import { authRouter } from "./routes/auth/auth.routes";
+import { adminProductRouter } from "./routes/admin/product.routes";
 
 async function mainEntryFunction() {
   await connectToDatabase();
@@ -34,7 +35,8 @@ async function mainEntryFunction() {
     res.json(ok({ message: "server is healthy" })),
   );
 
-  app.use("/auth",authRouter)
+  app.use("/auth", authRouter);
+  app.use("/admin", adminProductRouter); 
 
   app.use(notFound);
   app.use(errorHandler);

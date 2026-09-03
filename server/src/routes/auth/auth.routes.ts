@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../../middleare/auth";
+import { requireAuth } from "../../middleware/auth";
 import { clerkClient, getAuth } from "@clerk/express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { AppError } from "../../utils/AppError";
