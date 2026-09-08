@@ -14,6 +14,7 @@ import { adminPromoRouter } from "./routes/admin/promo.routes";
 import { customerAddressRouter } from "./routes/customer/address.routes";
 import { customerPromoRouter } from "./routes/customer/promo.routes";
 import { customerCartWishlistRouter } from "./routes/customer/cart-wishlist.routes";
+import { customerCheckoutRouter } from "./routes/customer/checkout.routes";
 
 async function mainEntryFunction() {
   await connectToDatabase();
@@ -48,6 +49,7 @@ async function mainEntryFunction() {
   app.use("/customer", customerAddressRouter);
   app.use("/customer", customerPromoRouter);
   app.use("/customer", customerCartWishlistRouter);
+  app.use("/customer", customerCheckoutRouter);
 
   //Admin
   app.use("/admin", adminProductRouter);
