@@ -9,6 +9,11 @@ import { errorHandler } from "./middleware/errorHandler";
 import { clerkMiddleware } from "@clerk/express";
 import { authRouter } from "./routes/auth/auth.routes";
 import { adminProductRouter } from "./routes/admin/product.routes";
+import { customerProductRouter } from "./routes/customer/product.routes";
+import { adminPromoRouter } from "./routes/admin/promo.routes";
+import { customerAddressRouter } from "./routes/customer/address.routes";
+import { customerPromoRouter } from "./routes/customer/promo.routes";
+import { customerCartWishlistRouter } from "./routes/customer/cart-wishlist.routes";
 
 async function mainEntryFunction() {
   await connectToDatabase();
@@ -23,7 +28,7 @@ async function mainEntryFunction() {
   app.use(
     cros({
       origin: corsOrigins,
-      credentials: true, 
+      credentials: true,
     }),
   );
 
@@ -35,8 +40,18 @@ async function mainEntryFunction() {
     res.json(ok({ message: "server is healthy" })),
   );
 
+  //Auth
   app.use("/auth", authRouter);
-  app.use("/admin", adminProductRouter); 
+
+  //Customer
+  app.use("/customer", customerProductRouter);
+  app.use("/customer", customerAddressRouter);
+  app.use("/customer", customerPromoRouter);
+  app.use("/customer", customerCartWishlistRouter);
+
+  //Admin
+  app.use("/admin", adminProductRouter);
+  app.use("/admin", adminPromoRouter);
 
   app.use(notFound);
   app.use(errorHandler);

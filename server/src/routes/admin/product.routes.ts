@@ -197,7 +197,7 @@ adminProductRouter.put(
     const colors = req.body.colors || [];
     const sizes = req.body.sizes || [];
     const coverImagePublicId = String(req.body.coverImagePublicId || "").trim();
-
+    console.log("BODY: ", req.body);
     requireText(title, "Title is required");
     requireText(description, "Description is required");
     requireText(category, "Category is required");
