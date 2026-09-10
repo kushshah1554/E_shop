@@ -197,6 +197,7 @@ adminProductRouter.put(
     const colors = req.body.colors || [];
     const sizes = req.body.sizes || [];
     const coverImagePublicId = String(req.body.coverImagePublicId || "").trim();
+    const existingImages = JSON.parse(req.body.existingImages || "[]");
     console.log("BODY: ", req.body);
     requireText(title, "Title is required");
     requireText(description, "Description is required");
@@ -228,13 +229,13 @@ adminProductRouter.put(
       isCover: false,
     }));
 
-    let existingImages: UploadedImage[] = product.images.map(
-      (img: UploadedImage) => ({
-        url: img.url,
-        publicId: img.publicId,
-        isCover: img.isCover,
-      }),
-    );
+    // let existingImages: UploadedImage[] = product.images.map(
+    //   (img: UploadedImage) => ({
+    //     url: img.url,
+    //     publicId: img.publicId,
+    //     isCover: img.isCover,
+    //   }),
+    // );
 
     const mergedImages: UploadedImage[] = [
       ...existingImages,
