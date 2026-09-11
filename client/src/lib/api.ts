@@ -106,7 +106,7 @@ export async function apiDelete<TResponse>(
   config?: AxiosRequestConfig,
 ) {
   try {
-    const response = await api.put<ApiEnvelope<TResponse>>(url, config);
+    const response = await api.delete<ApiEnvelope<TResponse>>(url, config);
     if (response.data.status === "error" || !response.data.data) {
       throw new Error(response.data.errors?.[0].message || "response error");
     }
