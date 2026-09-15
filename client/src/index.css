@@ -202,3 +202,32 @@
     @apply bg-background text-foreground;}
   html {
     @apply font-sans;}}
+
+
+
+    /* datetime-local: force calendar icon in Chromium (Brave/Chrome/Edge) */
+input[type="datetime-local"] {
+  color-scheme: light;
+  position: relative;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  display: block !important;
+  opacity: 1 !important;
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.25rem;
+  /* makes a dark icon visible on white fields */
+  filter: invert(0.35);
+}
+
+.dark input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+}
+
+    
