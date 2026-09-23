@@ -44,12 +44,7 @@ export const router = createBrowserRouter([
       },
       {
         element: <ProtectedLayout />,
-        children: [
-          {
-            path: "profile",
-            element: <h1>Profile</h1>,
-          },
-        ],
+        children: [],
       },
     ],
   },

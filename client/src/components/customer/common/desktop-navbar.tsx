@@ -19,6 +19,12 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CustomerMobileNavbar } from "./mobile-navbar";
+import { useCustomerWishlistStore } from "@/features/customer/wishlist/store";
+import { useAuthStore } from "@/features/auth/store";
+import { useEffect } from "react";
+import CustomerWishlistDialog from "../wishlist/customer-wishlist-dialog";
+import { useCustomerProfileStore } from "@/features/customer/profile/store";
+import CustomerProfileDialog from "../profile/customer-profile-dialog";
 
 type NavItem = {
   label: string;
@@ -88,7 +94,44 @@ function NavTextLink({
 }
 
 export function CustomerNavbar() {
-  const { isSignedIn, signOut } = useAuth();
+  const { isSignedIn, signOut, isLoaded } = useAuth();
+  const { isBootstrapped } = useAuthStore();
+
+  const {
+    items: wishlistItems,
+    loadWishlist,
+    clear: clearWishlist,
+    setOpen: setWishlistOpen,
+  } = useCustomerWishlistStore((state) => state);
+
+  const { openProfile, clear: clearProfile } = useCustomerProfileStore(
+    (state) => state,
+  );
+
+  useEffect(() => {
+    if (!isLoaded || !isBootstrapped) return;
+
+    // void loadCart(Boolean(isSignedIn));
+
+    if (!isSignedIn) {
+      clearWishlist();
+      clearProfile();
+      return;
+    }
+
+    void loadWishlist();
+  }, [
+    clearWishlist,
+    isBootstrapped,
+    clearProfile,
+    isSignedIn,
+    isLoaded,
+    loadWishlist,
+    // loadCart,
+  ]);
+
+  const showSignInUi = isLoaded && isBootstrapped && isSignedIn;
+  const wishlistCount = wishlistItems.length;
 
   return (
     <header className={headerClass}>
@@ -106,7 +149,17 @@ export function CustomerNavbar() {
         </div>
 
         <nav className={desktopNav}>
-          <NavTextLink href="/wishlist" label="Wishlist" icon={Heart} />
+          {showSignInUi ? (
+            <button
+              type="button"
+              className={iconLink}
+              onClick={() => setWishlistOpen(true)}
+            >
+              <Heart className="w-5 h-5" />
+              <span className={wishlistBadge}>{wishlistCount}</span>
+            </button>
+          ) : null}
+
           {isSignedIn ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -119,11 +172,12 @@ export function CustomerNavbar() {
                 align="start"
                 className={accountDropdownContent}
               >
-                <DropdownMenuItem asChild>
-                  <Link to={"/account"} className={dropdownItemLink}>
-                    <User className="h-4 w-4" />
-                    <span>My Account</span>
-                  </Link>
+                <DropdownMenuItem
+                  onClick={() => void openProfile()}
+                  className={dropdownItemLink}
+                >
+                  <User className="h-4 w-4" />
+                  <span>My Account</span>
                 </DropdownMenuItem>
 
                 {/* <DropdownMenuItem
@@ -151,7 +205,16 @@ export function CustomerNavbar() {
             <span className={cartBadge}>{0}</span>
           </Link>
         </nav>
-        <CustomerMobileNavbar isSignedIn={isSignedIn} signOut={signOut} />
+        <CustomerMobileNavbar
+          isSignedIn={isSignedIn}
+          signOut={signOut}
+          showSignInUi={showSignInUi}
+          wishlistOpen={() => setWishlistOpen(true)}
+          profileOpen={() => void openProfile()}
+        />
+
+        {showSignInUi ? <CustomerWishlistDialog /> : null}
+        {showSignInUi ? <CustomerProfileDialog /> : null}
       </div>
     </header>
   );

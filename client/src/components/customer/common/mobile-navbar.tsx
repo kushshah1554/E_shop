@@ -19,17 +19,22 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import CustomerWishlistDialog from "../wishlist/customer-wishlist-dialog";
+import CustomerProfileDialog from "../profile/customer-profile-dialog";
 
 type CustomerMobileNavbarProps = {
   isSignedIn: boolean;
   signOut: () => Promise<void>;
+  showSignInUi: boolean;
+  wishlistOpen: () => void;
+  profileOpen: () => void;
 };
 
 export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
-  fn?: () => Promise<void>;
+  fn?: (() => Promise<void>) | (() => void);
 };
 
 const collectionsPage: NavItem = {
@@ -96,11 +101,14 @@ function DrawerSection({ title, items }: { title: string; items: NavItem[] }) {
 export function CustomerMobileNavbar({
   isSignedIn,
   signOut,
+  showSignInUi,
+  wishlistOpen,
+  profileOpen,
 }: CustomerMobileNavbarProps) {
   const mobileAccountItems: NavItem[] = isSignedIn
     ? [
-        { label: "Account", href: "/account", icon: User },
-        { label: "Wishlist", href: "/wishlist", icon: Heart },
+        { label: "Account", href: "#", icon: User, fn: profileOpen },
+        { label: "Wishlist", href: "#", icon: Heart, fn: wishlistOpen },
         { label: "Sign Out", href: "#", icon: LogOut, fn: signOut },
       ]
     : [
@@ -141,6 +149,9 @@ export function CustomerMobileNavbar({
           <DrawerSection title="Account" items={mobileAccountItems} />
         </SheetContent>
       </Sheet>
+
+      {showSignInUi ? <CustomerWishlistDialog /> : null}
+      {showSignInUi ? <CustomerProfileDialog /> : null}
     </div>
   );
 }
