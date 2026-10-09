@@ -14,6 +14,7 @@ import AdminSettings from "./pages/admin/Settings";
 import AdminOrders from "./pages/admin/Orders";
 import Collections from "./pages/customer/Collections";
 import CollectionDetails from "./pages/customer/Collection-Details";
+import CustomerOrderSuccessPage from "./pages/customer/Order-Sucess";
 
 export const router = createBrowserRouter([
   {
@@ -44,7 +45,12 @@ export const router = createBrowserRouter([
       },
       {
         element: <ProtectedLayout />,
-        children: [],
+        children: [
+          {
+            path: "order-success",
+            element: <CustomerOrderSuccessPage />,
+          },
+        ],
       },
     ],
   },

@@ -392,7 +392,7 @@ export const useCustomerCartAndCheckoutStore =
         toast.success("Promo successfully applied");
       } catch {
         set({ appliedPromo: null, promoLoading: false });
-        toast.success("Unable to apply promo");
+        toast.error("Unable to apply promo");
       }
     },
     clear: () =>

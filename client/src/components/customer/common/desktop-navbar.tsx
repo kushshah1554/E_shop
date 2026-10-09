@@ -25,6 +25,8 @@ import { useEffect } from "react";
 import CustomerWishlistDialog from "../wishlist/customer-wishlist-dialog";
 import { useCustomerProfileStore } from "@/features/customer/profile/store";
 import CustomerProfileDialog from "../profile/customer-profile-dialog";
+import { useCustomerCartAndCheckoutStore } from "@/features/customer/cart-and-checkout/store";
+import CustomerCartAndCheckoutDrawer from "../cart-and-checkout/customer-cart-and-checkout-drawer";
 
 type NavItem = {
   label: string;
@@ -108,10 +110,14 @@ export function CustomerNavbar() {
     (state) => state,
   );
 
+  const { setOpen, cart, loadCart } = useCustomerCartAndCheckoutStore(
+    (state) => state,
+  );
+
   useEffect(() => {
     if (!isLoaded || !isBootstrapped) return;
 
-    // void loadCart(Boolean(isSignedIn));
+    void loadCart(Boolean(isSignedIn));
 
     if (!isSignedIn) {
       clearWishlist();
@@ -180,13 +186,13 @@ export function CustomerNavbar() {
                   <span>My Account</span>
                 </DropdownMenuItem>
 
-                {/* <DropdownMenuItem
-                  onClick={() => void openOrders()}
+                <DropdownMenuItem
+                  // onClick={() => void openOrders()}
                   className={dropdownItemLink}
                 >
                   <ShoppingBasket className="h-4 w-4" />
                   <span>My Orders</span>
-                </DropdownMenuItem> */}
+                </DropdownMenuItem>
 
                 <DropdownMenuItem
                   onClick={() => signOut()}
@@ -200,11 +206,12 @@ export function CustomerNavbar() {
           ) : (
             <NavTextLink href="/sign-in" label="Login" icon={LogIn} />
           )}
-          <Link to={"/cart"} className={iconLink}>
+          <div onClick={() => setOpen(true)} className={iconLink}>
             <ShoppingCart className="h-4.5 w-4.5" />
-            <span className={cartBadge}>{0}</span>
-          </Link>
+            <span className={cartBadge}>{cart?.items?.length}</span>
+          </div>
         </nav>
+
         <CustomerMobileNavbar
           isSignedIn={isSignedIn}
           signOut={signOut}
@@ -215,6 +222,8 @@ export function CustomerNavbar() {
 
         {showSignInUi ? <CustomerWishlistDialog /> : null}
         {showSignInUi ? <CustomerProfileDialog /> : null}
+        {/* {showSignInUi ? <CustomerOrdersDialog /> : null} */}
+        <CustomerCartAndCheckoutDrawer />
       </div>
     </header>
   );
