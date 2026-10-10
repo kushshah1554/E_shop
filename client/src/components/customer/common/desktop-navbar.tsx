@@ -27,6 +27,8 @@ import { useCustomerProfileStore } from "@/features/customer/profile/store";
 import CustomerProfileDialog from "../profile/customer-profile-dialog";
 import { useCustomerCartAndCheckoutStore } from "@/features/customer/cart-and-checkout/store";
 import CustomerCartAndCheckoutDrawer from "../cart-and-checkout/customer-cart-and-checkout-drawer";
+import CustomerOrdersDialog from "../orders/customer-orders-dialog";
+import { useCustomerOrdersStore } from "@/features/customer/orders/store";
 
 type NavItem = {
   label: string;
@@ -114,6 +116,8 @@ export function CustomerNavbar() {
     (state) => state,
   );
 
+  const { openOrders } = useCustomerOrdersStore((state) => state);
+
   useEffect(() => {
     if (!isLoaded || !isBootstrapped) return;
 
@@ -133,7 +137,7 @@ export function CustomerNavbar() {
     isSignedIn,
     isLoaded,
     loadWishlist,
-    // loadCart,
+    loadCart,
   ]);
 
   const showSignInUi = isLoaded && isBootstrapped && isSignedIn;
@@ -187,7 +191,7 @@ export function CustomerNavbar() {
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
-                  // onClick={() => void openOrders()}
+                  onClick={() => void openOrders()}
                   className={dropdownItemLink}
                 >
                   <ShoppingBasket className="h-4 w-4" />
@@ -222,7 +226,7 @@ export function CustomerNavbar() {
 
         {showSignInUi ? <CustomerWishlistDialog /> : null}
         {showSignInUi ? <CustomerProfileDialog /> : null}
-        {/* {showSignInUi ? <CustomerOrdersDialog /> : null} */}
+        {showSignInUi ? <CustomerOrdersDialog /> : null}
         <CustomerCartAndCheckoutDrawer />
       </div>
     </header>
