@@ -1,6 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
 import { CustomerLayout } from "./components/layout/CustomerLayout";
-import Home from "./components/customer/Home";
 import { PublicOnlyLayout } from "./components/auth/publicOnlyLayout";
 import { SignInPage } from "./pages/auth/Sign-in";
 import { SignUpPage } from "./pages/auth/Sign-up";
@@ -15,13 +14,14 @@ import AdminOrders from "./pages/admin/Orders";
 import Collections from "./pages/customer/Collections";
 import CollectionDetails from "./pages/customer/Collection-Details";
 import CustomerOrderSuccessPage from "./pages/customer/Order-Sucess";
+import { StoreHome } from "./pages/customer/Home";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <CustomerLayout />,
     children: [
-      { index: true, element: <Home /> },
+      { index: true, element: <StoreHome /> },
       {
         element: <PublicOnlyLayout />,
         children: [
