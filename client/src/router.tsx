@@ -14,6 +14,8 @@ import AdminOrders from "./pages/admin/Orders";
 import Collections from "./pages/customer/Collections";
 import CollectionDetails from "./pages/customer/Collection-Details";
 import CustomerOrderSuccessPage from "./pages/customer/Order-Sucess";
+import CustomerEsewaSuccessPage from "./pages/customer/Esewa-Success";
+import CustomerEsewaFailurePage from "./pages/customer/Esewa-Failure";
 import { StoreHome } from "./pages/customer/Home";
 
 export const router = createBrowserRouter([
@@ -46,10 +48,23 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedLayout />,
         children: [
-          {
-            path: "order-success",
-            element: <CustomerOrderSuccessPage />,
-          },
+        {
+          path: "order-success",
+          element: <CustomerOrderSuccessPage />,
+        },
+        {
+          // ESEWA_SUCCESS_URL should point here; eSewa appends
+          // transaction_uuid, status and ref_id to the query string.
+          path: "esewa-success",
+          element: <CustomerEsewaSuccessPage />,
+        },
+        {
+          // ESEWA_FAILURE_URL points here; eSewa redirects the browser to
+          // this route and the page reports the failure to
+          // /checkout/esewa/failure.
+          path: "failure",
+          element: <CustomerEsewaFailurePage />,
+        },
         ],
       },
     ],

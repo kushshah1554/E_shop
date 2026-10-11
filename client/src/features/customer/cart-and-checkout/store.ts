@@ -41,6 +41,14 @@ type PointsArgs = {
   onSuccess: () => void;
 };
 
+// sessionStorage key holding the in-flight eSewa transaction_uuid, shared
+// between the checkout flow and the failure page.
+export const ESEWA_PENDING_TRANSACTION_KEY = "esewa_pending_transaction_uuid";
+
+type EsewaArgs = {
+  isSignedIn: boolean;
+};
+
 type CustomerCartAndCheckoutStore = {
   cart: CustomerCartResponse;
   isOpen: boolean;
@@ -73,6 +81,7 @@ type CustomerCartAndCheckoutStore = {
   clearPromo: () => void;
   applyPromo: () => Promise<void>;
   startRazorpayCheckout: (args: RazorpayArgs) => Promise<void>;
+  startEsewaCheckout: (args: EsewaArgs) => Promise<void>;
   startPointsCheckout: (args: PointsArgs) => Promise<void>;
   clear: () => void;
 };
@@ -426,11 +435,14 @@ export const useCustomerCartAndCheckoutStore =
         const session = await createCheckoutSession({
           addressId: selectedAddressId,
           promoCode: appliedPromo?.code || undefined,
+          paymentMethod: "razorpay",
         });
 
         if (
-          !session.razorpay?.keyId ||
-          !session.razorpay.orderId ||
+          !session.paymentSession ||
+          session.paymentSession.method !== "razorpay" ||
+          !session.paymentSession.keyId ||
+          !session.paymentSession.orderId ||
           !session.order._id
         ) {
           throw new Error("Invalid checkout session");
@@ -444,10 +456,10 @@ export const useCustomerCartAndCheckoutStore =
           throw new Error("Razorpay not loaded");
         }
         const razorpay = new window.Razorpay({
-          key: session.razorpay.keyId,
-          amount: session.razorpay.amount,
-          currency: session.razorpay.currency,
-          order_id: session.razorpay.orderId,
+          key: session.paymentSession.keyId,
+          amount: session.paymentSession.amount,
+          currency: session.paymentSession.currency,
+          order_id: session.paymentSession.orderId,
           name: "Monster E-commerce",
           description: "Order payment",
           prefill: { name, email },
@@ -483,6 +495,88 @@ export const useCustomerCartAndCheckoutStore =
         });
 
         razorpay.open();
+      } catch {
+        set({ checkoutLoading: false });
+        toast.error("Unable to start checkout");
+      }
+    },
+
+    // eSewa pays through a full page redirect: create the session, then
+    // submit the signed form returned by the server. The order is only
+    // confirmed once the user returns and /checkout/esewa/verify is called.
+    startEsewaCheckout: async ({ isSignedIn }) => {
+      const { selectedAddressId, appliedPromo, cart } = get();
+
+      if (!isSignedIn) {
+        toast.error("sign in to checkout");
+        return;
+      }
+
+      if (!selectedAddressId) {
+        toast.error("Add a default address from profile section");
+        return;
+      }
+
+      if (!cart.items.length) {
+        toast.error("Your cart is empty");
+        return;
+      }
+
+      try {
+        set({ checkoutLoading: true });
+
+        const session = await createCheckoutSession({
+          addressId: selectedAddressId,
+          promoCode: appliedPromo?.code || undefined,
+          paymentMethod: "esewa",
+        });
+
+        const paymentSession = session.paymentSession;
+
+        if (
+          !paymentSession ||
+          paymentSession.method !== "esewa" ||
+          !paymentSession.formUrl ||
+          !Object.keys(paymentSession.fields || {}).length
+        ) {
+          throw new Error("Invalid checkout session");
+        }
+
+        const form = document.createElement("form");
+        form.action = paymentSession.formUrl;
+        form.method = "POST";
+        form.style.display = "none";
+
+        Object.entries(paymentSession.fields).forEach(([key, value]) => {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = value;
+          form.appendChild(input);
+        });
+
+        // eSewa can redirect to ESEWA_FAILURE_URL without any query params,
+        // so remember the transaction and let the failure page fall back to
+        // it when reporting the failed payment.
+        if (paymentSession.fields.transaction_uuid) {
+          window.sessionStorage.setItem(
+            ESEWA_PENDING_TRANSACTION_KEY,
+            paymentSession.fields.transaction_uuid,
+          );
+        }
+
+        // If the user backs out of eSewa and the page is restored from the
+        // bfcache, drop the loading state again.
+        window.addEventListener(
+          "pageshow",
+          (event) => {
+            if (event.persisted) set({ checkoutLoading: false });
+          },
+          { once: true },
+        );
+
+        document.body.appendChild(form);
+        form.submit();
       } catch {
         set({ checkoutLoading: false });
         toast.error("Unable to start checkout");

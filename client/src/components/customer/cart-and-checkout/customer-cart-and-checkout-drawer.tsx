@@ -83,6 +83,7 @@ function CustomerCartAndCheckoutDrawer() {
     clearPromo,
     applyPromo,
     startRazorpayCheckout,
+    startEsewaCheckout,
     startPointsCheckout,
     loading,
     cart,
@@ -227,6 +228,30 @@ function CustomerCartAndCheckoutDrawer() {
                         {checkoutLoading
                           ? "Processing..."
                           : "Pay with Razorpay"}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          // eSewa pays through a full page redirect, so close
+                          // the drawer before leaving the app.
+                          void setOpen(false);
+                          void startEsewaCheckout({
+                            isSignedIn: Boolean(isSignedIn),
+                          });
+                        }}
+                        type="button"
+                        variant="outline"
+                        className={primaryButtonClass}
+                        disabled={
+                          loading ||
+                          !cart.items.length ||
+                          !selectedAddressId ||
+                          checkoutLoading ||
+                          pointsCheckoutLoading
+                        }
+                      >
+                        {checkoutLoading
+                          ? "Redirecting to eSewa..."
+                          : "Pay with eSewa"}
                       </Button>
                       <Button
                         onClick={() => {

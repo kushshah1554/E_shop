@@ -7,6 +7,7 @@ import type {
   CheckoutPayWithPointsResponse,
   CheckoutPointsResponse,
   CheckoutSessionResponse,
+  EsewaFailureResponse,
   CustomerCartItemIdentifier,
   CustomerCartResponse,
   SyncCustomerCartBody,
@@ -105,6 +106,7 @@ export async function applyCustomerPromo(body: {
 export async function createCheckoutSession(body: {
   addressId: string;
   promoCode?: string;
+  paymentMethod: "razorpay" | "esewa";
 }) {
   return apiPost<CheckoutSessionResponse, typeof body>(
     "/customer/checkout/create-session",
@@ -130,6 +132,26 @@ export async function confirmCheckout(body: {
 }) {
   return apiPost<CheckoutConfirmResponse, typeof body>(
     "/customer/checkout/confirm",
+    body,
+  );
+}
+
+export async function verifyEsewaCheckout(body: {
+  transaction_uuid: string;
+  status?: string;
+  ref_id?: string;
+}) {
+  return apiPost<CheckoutConfirmResponse, typeof body>(
+    "/customer/checkout/esewa/verify",
+    body,
+  );
+}
+
+// eSewa redirects the browser to ESEWA_FAILURE_URL; the page posts the
+// transaction_uuid here so the pending order is marked as failed.
+export async function failEsewaCheckout(body: { transaction_uuid: string }) {
+  return apiPost<EsewaFailureResponse, typeof body>(
+    "/customer/checkout/esewa/failure",
     body,
   );
 }

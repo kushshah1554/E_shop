@@ -9,9 +9,11 @@ import { Cart } from "../../models/Cart";
 import { AppError } from "../../utils/AppError";
 import { Promo } from "../../models/Promo";
 import { razorpay, toSubUnits } from "../../utils/razorpay";
-import { Order } from "../../models/Order";
+import { Order, type OrderDocument } from "../../models/Order";
 import { ok } from "../../utils/envelope";
-import crypto from "crypto";
+import crypto, { randomUUID } from "node:crypto";
+
+type PaymentMethod = "razorpay" | "esewa";
 
 type UserAddressRow = {
   _id: Types.ObjectId;
@@ -58,6 +60,73 @@ export const customerCheckoutRouter = Router();
 
 customerCheckoutRouter.use(requireAuth);
 
+type EsewaStatusResponse = {
+  ref_id?: string;
+  status?: string;
+  total_amount?: string | number;
+  transaction_uuid?: string;
+};
+
+function getEsewaStatusUrl() {
+  if (process.env.ESEWA_STATUS_URL) return process.env.ESEWA_STATUS_URL;
+
+  const formUrl =
+    process.env.ESEWA_FORM_URL ||
+    "https://rc-epay.esewa.com.np/api/epay/main/v2/form";
+
+  return formUrl.includes("rc-")
+    ? "https://rc.esewa.com.np/api/epay/transaction/status/"
+    : "https://esewa.com.np/api/epay/transaction/status/";
+}
+
+// Shared post-payment bookkeeping: reserve stock, burn promo usage,
+// clear the cart and mark the order as paid.
+async function settlePaidOrder(
+  order: OrderDocument,
+  userId: Types.ObjectId,
+  opts: { paymentId: string; esewaTransactionCode?: string },
+) {
+  for (const item of order.items) {
+    const updated = await Product.updateOne(
+      {
+        _id: item.product,
+        stock: { $gte: item.quantity },
+      },
+      {
+        $inc: { stock: -item.quantity },
+      },
+    );
+
+    if (!updated.matchedCount) {
+      throw new AppError(400, "One or more cart items are out of stock");
+    }
+  }
+
+  if (order.promoCode) {
+    await Promo.updateOne(
+      {
+        code: order.promoCode,
+        count: { $gt: 0 },
+      },
+      {
+        $inc: { count: -1 },
+      },
+    );
+  }
+
+  await Cart.updateOne({ user: userId }, { $set: { items: [] } });
+
+  order.paymentStatus = "paid";
+  order.paymentId = opts.paymentId;
+
+  if (opts.esewaTransactionCode) {
+    order.esewaTransactionCode = opts.esewaTransactionCode;
+  }
+
+  order.paidAt = new Date();
+  await order.save();
+}
+
 customerCheckoutRouter.post(
   "/checkout/create-session",
   asyncHandler(async (req: Request, res: Response) => {
@@ -66,6 +135,14 @@ customerCheckoutRouter.post(
     const promoCode = String(req.body.promoCode || "")
       .trim()
       .toUpperCase();
+
+    const paymentMethod = String(req.body.paymentMethod || "razorpay")
+      .trim()
+      .toLowerCase() as PaymentMethod;
+
+    if (!["razorpay", "esewa"].includes(paymentMethod)) {
+      throw new AppError(400, "Invalid payment method");
+    }
 
     requireText(addressId, "Address is required");
 
@@ -165,12 +242,6 @@ customerCheckoutRouter.post(
 
     const totalAmount = Math.max(subTotal - discountAmount, 0);
 
-    const razorpayOrder = await razorpay.orders.create({
-      amount: toSubUnits(totalAmount),
-      currency: "INR",
-      receipt: `Order_${Date.now()}`,
-    });
-
     const deliveryAddress = [
       selectedAddress.address,
       selectedAddress.state,
@@ -178,6 +249,98 @@ customerCheckoutRouter.post(
     ]
       .filter(Boolean)
       .join(", ");
+
+    let razorpayOrderId = "";
+    let esewaTransactionUuid = "";
+
+    let paymentSession:
+      | {
+          method: "razorpay";
+          keyId: string | undefined;
+          orderId: string;
+          amount: number;
+          currency: string;
+        }
+      | {
+          method: "esewa";
+          formUrl: string;
+          fields: Record<string, string>;
+        };
+
+    if (paymentMethod === "razorpay") {
+      const razorpayOrder = await razorpay.orders.create({
+        amount: toSubUnits(totalAmount),
+        currency: "INR",
+        receipt: `Order_${Date.now()}`,
+      });
+
+      razorpayOrderId = razorpayOrder.id;
+
+      paymentSession = {
+        method: "razorpay",
+        keyId: process.env.RAZORPAY_KEY_ID,
+        orderId: razorpayOrder.id,
+        amount: Number(razorpayOrder.amount),
+        currency: razorpayOrder.currency,
+      };
+    } else {
+      // Configure these environment variables before enabling eSewa.
+      const productCode = process.env.ESEWA_PRODUCT_CODE;
+      const secretKey = process.env.ESEWA_SECRET_KEY;
+      const successUrl = process.env.ESEWA_SUCCESS_URL;
+      const failureUrl = process.env.ESEWA_FAILURE_URL;
+
+      if (!productCode || !secretKey || !successUrl || !failureUrl) {
+        throw new AppError(500, "eSewa is not configured");
+      }
+
+      // Unique identifier for this payment attempt.
+      esewaTransactionUuid = randomUUID();
+
+      const amount = totalAmount.toFixed(2);
+      const taxAmount = "0";
+      const serviceCharge = "0";
+      const deliveryCharge = "0";
+
+      const totalPayable = (
+        Number(amount) +
+        Number(taxAmount) +
+        Number(serviceCharge) +
+        Number(deliveryCharge)
+      ).toFixed(2);
+
+      const signedFieldNames = "total_amount,transaction_uuid,product_code";
+
+      const signatureMessage =
+        `total_amount=${totalPayable},` +
+        `transaction_uuid=${esewaTransactionUuid},` +
+        `product_code=${productCode}`;
+
+      const signature = crypto
+        .createHmac("sha256", secretKey)
+        .update(signatureMessage)
+        .digest("base64");
+
+      paymentSession = {
+        method: "esewa",
+        formUrl:
+          process.env.ESEWA_FORM_URL ||
+          "https://rc-epay.esewa.com.np/api/epay/main/v2/form",
+        fields: {
+          amount,
+          tax_amount: taxAmount,
+          total_amount: totalPayable,
+          transaction_uuid: esewaTransactionUuid,
+          product_code: productCode,
+          product_service_charge: serviceCharge,
+          product_delivery_charge: deliveryCharge,
+          success_url: successUrl,
+          failure_url: failureUrl,
+          signed_field_names: signedFieldNames,
+          signature,
+        },
+      };
+    }
 
     const order = await Order.create({
       user: dbUser._id,
@@ -190,19 +353,16 @@ customerCheckoutRouter.post(
       promoCode: appliedPromoCode,
       discountAmount,
       totalAmount,
+      paymentMethod,
       paymentStatus: "pending",
       orderStatus: "placed",
-      razorpayOrderId: razorpayOrder.id,
+      razorpayOrderId,
+      esewaTransactionUuid,
     });
 
     res.json(
       ok({
-        razorpay: {
-          keyId: process.env.RAZORPAY_KEY_ID,
-          orderId: razorpayOrder.id,
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-        },
+        paymentSession,
         order: {
           _id: String(order._id),
           totalItems,
@@ -231,6 +391,10 @@ customerCheckoutRouter.post(
     const order = await Order.findOne({ _id: orderId, user: dbUser._id });
     const foundOrder = requireFound(order, "Order not found", 404);
 
+    if (foundOrder.paymentMethod !== "razorpay") {
+      throw new AppError(400, "This order does not use Razorpay");
+    }
+
     if (foundOrder.paymentStatus === "paid") {
       res.json(ok({ _id: String(foundOrder._id) }));
       return;
@@ -249,41 +413,132 @@ customerCheckoutRouter.post(
       throw new AppError(400, "Invalid payment signature");
     }
 
-    for (const item of foundOrder.items) {
-      const updated = await Product.updateOne(
-        {
-          _id: item.product,
-          stock: { $gte: item.quantity },
-        },
-        {
-          $inc: { stock: -item.quantity },
-        },
-      );
-
-      if (!updated.matchedCount) {
-        throw new AppError(400, "One or more cart items are out of stock");
-      }
-    }
-
-    if (foundOrder.promoCode) {
-      await Promo.updateOne(
-        {
-          code: foundOrder.promoCode,
-          count: { $gt: 0 },
-        },
-        {
-          $inc: { count: -1 },
-        },
-      );
-    }
-
-    await Cart.updateOne({ user: dbUser._id }, { $set: { items: [] } });
-
-    foundOrder.paymentStatus = "paid";
-    foundOrder.paymentId = razorpayPaymentId;
-    foundOrder.paidAt = new Date();
-    await foundOrder.save();
+    await settlePaidOrder(foundOrder, dbUser._id, {
+      paymentId: razorpayPaymentId,
+    });
 
     res.json(ok({ _id: String(foundOrder._id) }));
+  }),
+);
+
+// eSewa redirects the browser to ESEWA_SUCCESS_URL with transaction_uuid,
+// product_code, total_amount and status in the query string. The client posts
+// those params here and the payment is re-verified against eSewa's status API
+// before the order is marked as paid.
+customerCheckoutRouter.post(
+  "/checkout/esewa/verify",
+  asyncHandler(async (req: Request, res: Response) => {
+    const dbUser = await getDbUserFromReq(req);
+    const transactionUuid = String(
+      req.body.transaction_uuid || req.body.transactionUuid || "",
+    ).trim();
+    const refId = String(req.body.ref_id || "").trim();
+    const reportedStatus = String(req.body.status || "")
+      .trim()
+      .toUpperCase();
+
+    requireText(transactionUuid, "transaction_uuid is needed");
+
+    if (reportedStatus && reportedStatus !== "COMPLETE") {
+      throw new AppError(400, "eSewa payment was not completed");
+    }
+
+    const order = await Order.findOne({
+      user: dbUser._id,
+      esewaTransactionUuid: transactionUuid,
+    });
+    const foundOrder = requireFound(order, "Order not found", 404);
+
+    if (foundOrder.paymentMethod !== "esewa") {
+      throw new AppError(400, "This order does not use eSewa");
+    }
+
+    if (foundOrder.paymentStatus === "paid") {
+      res.json(ok({ _id: String(foundOrder._id) }));
+      return;
+    }
+
+    const productCode = process.env.ESEWA_PRODUCT_CODE;
+
+    if (!productCode) {
+      throw new AppError(500, "eSewa is not configured");
+    }
+
+    const statusUrl = new URL(getEsewaStatusUrl());
+    statusUrl.searchParams.set("product_code", productCode);
+    statusUrl.searchParams.set(
+      "total_amount",
+      Number(foundOrder.totalAmount).toFixed(2),
+    );
+    statusUrl.searchParams.set("transaction_uuid", transactionUuid);
+
+    let esewaStatus: EsewaStatusResponse;
+
+    try {
+      const response = await fetch(statusUrl, { method: "GET" });
+      esewaStatus = (await response.json()) as EsewaStatusResponse;
+    } catch {
+      throw new AppError(502, "Unable to verify payment with eSewa");
+    }
+
+    if (String(esewaStatus?.status || "").toUpperCase() !== "COMPLETE") {
+      throw new AppError(400, "eSewa payment is not complete");
+    }
+
+    const paidAmount = Number(esewaStatus.total_amount);
+
+    if (
+      !Number.isNaN(paidAmount) &&
+      paidAmount !== Number(foundOrder.totalAmount)
+    ) {
+      throw new AppError(400, "Payment amount mismatch");
+    }
+
+    const verifiedRefId = String(esewaStatus.ref_id || refId);
+
+    await settlePaidOrder(foundOrder, dbUser._id, {
+      paymentId: verifiedRefId,
+      esewaTransactionCode: refId || verifiedRefId,
+    });
+
+    res.json(ok({ _id: String(foundOrder._id) }));
+  }),
+);
+
+// eSewa redirects the browser to ESEWA_FAILURE_URL; the client posts the
+// transaction_uuid here so the pending order is marked as failed. This is
+// recoverable: if the payment actually went through, a later call to
+// /checkout/esewa/verify still confirms it through eSewa's status API.
+customerCheckoutRouter.post(
+  "/checkout/esewa/failure",
+  asyncHandler(async (req: Request, res: Response) => {
+    const dbUser = await getDbUserFromReq(req);
+    const transactionUuid = String(
+      req.body.transaction_uuid || req.body.transactionUuid || "",
+    ).trim();
+
+    requireText(transactionUuid, "transaction_uuid is needed");
+
+    const order = await Order.findOne({
+      user: dbUser._id,
+      esewaTransactionUuid: transactionUuid,
+    });
+    const foundOrder = requireFound(order, "Order not found", 404);
+
+    if (foundOrder.paymentMethod !== "esewa") {
+      throw new AppError(400, "This order does not use eSewa");
+    }
+
+    if (foundOrder.paymentStatus !== "paid") {
+      foundOrder.paymentStatus = "failed";
+      await foundOrder.save();
+    }
+
+    res.json(
+      ok({
+        _id: String(foundOrder._id),
+        paymentStatus: foundOrder.paymentStatus,
+      }),
+    );
   }),
 );

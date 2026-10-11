@@ -41,13 +41,25 @@ export type AppliedPromo = {
   minimumOrderValue: number;
 };
 
+export type RazorpayPaymentSession = {
+  method: "razorpay";
+  keyId: string | undefined;
+  orderId: string;
+  amount: number;
+  currency: string;
+};
+
+export type EsewaPaymentSession = {
+  method: "esewa";
+  formUrl: string;
+  fields: Record<string, string>;
+};
+
+export type PaymentSession = RazorpayPaymentSession | EsewaPaymentSession;
+
 export type CheckoutSessionResponse = {
-  razorpay: {
-    keyId: string;
-    orderId: string;
-    amount: number;
-    currency: string;
-  };
+  paymentSession: PaymentSession;
+
   order: {
     _id: string;
     totalItems: number;
@@ -58,6 +70,11 @@ export type CheckoutSessionResponse = {
 
 export type CheckoutConfirmResponse = {
   _id: string;
+};
+
+export type EsewaFailureResponse = {
+  _id: string;
+  paymentStatus: string;
 };
 
 export type CheckoutPointsResponse = {
