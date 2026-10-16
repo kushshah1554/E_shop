@@ -198,11 +198,6 @@ export function CustomerNavbar() {
                   <span>My Orders</span>
                 </DropdownMenuItem>
 
-                <DropdownMenuItem className={dropdownItemLink}>
-                  <ShoppingBasket className="h-4 w-4" />
-                  <Link to="/admin">Admin Dashboard</Link>
-                </DropdownMenuItem>
-
                 <DropdownMenuItem
                   onClick={() => signOut()}
                   className={dropdownItemLink}
