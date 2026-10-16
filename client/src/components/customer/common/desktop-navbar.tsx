@@ -217,7 +217,7 @@ export function CustomerNavbar() {
         </nav>
 
         <CustomerMobileNavbar
-          isSignedIn={isSignedIn}
+          isSignedIn={Boolean(isSignedIn)}
           signOut={signOut}
           showSignInUi={showSignInUi}
           wishlistOpen={() => setWishlistOpen(true)}
