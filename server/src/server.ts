@@ -51,14 +51,14 @@ async function mainEntryFunction() {
   app.use("/auth", authRouter);
 
   //Customer
+  app.use("/customer", customerHomeRouter);
   app.use("/customer", customerProductRouter);
+  app.use("/customer", customerCartWishlistRouter);
   app.use("/customer", customerAddressRouter);
   app.use("/customer", customerPromoRouter);
-  app.use("/customer", customerCartWishlistRouter);
   app.use("/customer", customerCheckoutRouter);
   app.use("/customer", customerCheckoutWithPointsRouter);
   app.use("/customer", customerOrderRouter);
-  app.use("/customer", customerHomeRouter);
 
   //Admin
   app.use("/admin", adminProductRouter);
